@@ -623,7 +623,9 @@ vcs_vsn_1(Vcs, Dir) ->
             end
     end.
 
-vcs_vsn_cmd(git)    -> "git describe --always --tags";
+% dirty dirty hack, because CouchDB 2.0 release tarballs don’t include .git dirs
+% any more and I don’t understand rebar well enough to fix this any other way.
+vcs_vsn_cmd(git)    -> {plain, "2.0.0-alpha"}; % "git describe --always --tags";
 vcs_vsn_cmd(p4)     -> "echo #head";
 vcs_vsn_cmd(hg)     -> "hg identify -i";
 vcs_vsn_cmd(bzr)    -> "bzr revno";
