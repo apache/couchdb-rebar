@@ -40,7 +40,7 @@
 %% source_ext: extension of peg source files
 -module(rebar_neotoma_compiler).
 
--export([compile/2]).
+-export([compile/2, clean/2]).
 
 %% for internal use only
 -export([info/2]).
@@ -59,17 +59,37 @@ compile(Config, _AppFile) ->
                             option(module_ext, NeoOpts) ++ ".erl",
                             fun compile_neo/3, [{check_last_mod, true}]).
 
+-spec clean(rebar_config:config(), file:filename()) -> 'ok'.
+clean(Config, _AppFile) ->
+    NeoOpts = neotoma_opts(Config),
+    GeneratedFiles = neotoma_generated_files(
+                       option(out_dir, NeoOpts),
+                       option(module_ext, NeoOpts),
+                       neotoma_source_files(
+                         option(doc_root, NeoOpts),
+                         option(source_ext, NeoOpts)
+                        )
+                      ),
+    ok = rebar_file_utils:delete_each(GeneratedFiles),
+    ok.
+
 %% ============================================================================
 %% Internal functions
 %% ============================================================================
 
 info(help, compile) ->
+    info_help("Build Neotoma (*.peg) sources.~n");
+info(help, clean) ->
+    info_help("Delete *.peg build results").
+
+info_help(Description) ->
     ?CONSOLE(
-       "Build Neotoma (*.peg) sources.~n"
+       "~s.~n"
        "~n"
        "Valid rebar.config options:~n"
        "  ~p~n",
        [
+        Description,
         {neotoma_opts, [{doc_root, "src"},
                         {out_dir, "src"},
                         {source_ext, ".peg"},
@@ -161,3 +181,20 @@ referenced_pegs1(Step, Config, Seen) ->
         _ -> referenced_pegs1(sets:to_list(New), Config,
                               sets:union(New, Seen))
     end.
+
+neotoma_source_files(SrcDir, Ext) ->
+    lists:map(
+      fun filename:basename/1,
+      filelib:wildcard(filename:join([SrcDir, "*" ++ Ext]))
+     ).
+
+
+neotoma_generated_files(OutDir, ModExt, SourceFiles) ->
+    lists:map(
+      fun(PegFile) ->
+              Base = filename:rootname(PegFile),
+              NewName = Base ++ ModExt ++ ".erl",
+              filename:join(OutDir, NewName)
+      end,
+      SourceFiles
+     ).

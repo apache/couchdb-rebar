@@ -2,17 +2,20 @@
 %% ex: ts=4 sw=4 et
 -module(rgen1_rt).
 
--compile(export_all).
+-export([setup/1, files/0, run/1]).
 
 %% Exercise release generation w/ templating
+
+setup([Target]) ->
+  retest_utils:load_module(filename:join(Target, "inttest_utils.erl")),
+  ok.
 
 files() ->
     [
      {copy, "reltool.config"},
      {copy, "test.config"},
-     {copy, "vars.config"},
-     {copy, "../../rebar"}
-    ].
+     {copy, "vars.config"}
+    ] ++ inttest_utils:rebar_setup().
 
 run(_Dir) ->
     {ok, _} = retest_sh:run("./rebar -v generate", []),

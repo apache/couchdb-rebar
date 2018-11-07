@@ -1,3 +1,64 @@
+# 2.6.4
+
+* rebar/619: [Fix cdb processing when a file is skipped](https://github.com/rebar/rebar/pull/619)
+
+# 2.6.3
+
+* rebar/610: [qc: lift experimental notice](https://github.com/rebar/rebar/pull/610)
+* rebar/611: [port_compiler: consistently format default_env/0](https://github.com/rebar/rebar/pull/611)
+* rebar/612: [Introduce and use compat random number module](https://github.com/rebar/rebar/pull/612)
+* rebar/614: [Add an additional check for the existence of a 'rebar.beam' file](https://github.com/rebar/rebar/pull/614)
+* rebar/615: [port_compiler: generate clang compilation db](https://github.com/rebar/rebar/pull/615)
+* rebar/616: [port_compiler: clean up compile_each()](https://github.com/rebar/rebar/pull/616)
+* rebar/617: [port_compiler: auto-select C++ specific link template](https://github.com/rebar/rebar/pull/617)
+
+# 2.6.2
+
+* rebar/532: [Automatically clean neotoma-generated erl files, regression test](https://github.com/rebar/rebar/pull/532)
+* rebar/549: [Add Windows continuous integration through AppVeyor](https://github.com/rebar/rebar/pull/549)
+* rebar/551: [fprof: document Cachegrind support](https://github.com/rebar/rebar/pull/551)
+* rebar/556: [fprof: further document Cachegrind support](https://github.com/rebar/rebar/pull/556)
+* rebar/557: [Fix windows eunit tests](https://github.com/rebar/rebar/pull/557)
+* rebar/558: [Add qualified name tests docs (see pr #119)](https://github.com/rebar/rebar/pull/558)
+* rebar/560: [Lock retest dependency](https://github.com/rebar/rebar/pull/560)
+* rebar/562: [Add support for Windows integration testing](https://github.com/rebar/rebar/pull/562)
+* rebar/567: [Allow windows release to use etc conf dir](https://github.com/rebar/rebar/pull/567)
+* rebar/570: [xref: fix dialyzer warning introduced in 69802f63120](https://github.com/rebar/rebar/pull/570)
+* rebar/573: [Provide additional debug logging on relup generation](https://github.com/rebar/rebar/pull/573)
+* rebar/578: [Add the latest OTP 18 version to the Travis build](https://github.com/rebar/rebar/pull/578)
+* rebar/580: [Additional Common Test regression tests](https://github.com/rebar/rebar/pull/580)
+* rebar/581: [Update retest dependency url](https://github.com/rebar/rebar/pull/581)
+* rebar/586: [Ensure ebin created for dia compiler](https://github.com/rebar/rebar/pull/586)
+* rebar/587: [rebar_require_vsn: Update regexp to account for newer OTP versions](https://github.com/rebar/rebar/pull/587)
+* rebar/588: [Look for ct .spec files in the ct_dir that was specified](https://github.com/rebar/rebar/pull/588)
+* rebar/589: [Introduce REBAR_DEPS_PREFER_LIBS env variable to alter search behaviour](https://github.com/rebar/rebar/pull/589)
+* rebar/590: [Treat port env vars as expandable only if they self reference](https://github.com/rebar/rebar/pull/590)
+* rebar/591: [Fix/eunit tests surefire crash](https://github.com/rebar/rebar/pull/591)
+* rebar/594: [Introduce REBAR_VSN_CACHE_FILE env variable to load/save vsn cache](https://github.com/rebar/rebar/pull/594)
+* rebar/599: [Fix bug when running gcc in cross_sizeof](https://github.com/rebar/rebar/pull/599)
+* rebar/602: [Support full-source rebar3-style deps (deps without Version Regexes)](https://github.com/rebar/rebar/pull/602)
+* rebar/603: [add deprecated message](https://github.com/rebar/rebar/pull/603)
+* rebar/605: [Add necessary OSX flags for port driver linking](https://github.com/rebar/rebar/pull/605)
+* rebar/606: [Revert 'Treat port env vars as expandable only if they self reference'](https://github.com/rebar/rebar/pull/606)
+
+# 2.6.1
+
+* rebar/514: [Add license to relnotes tool per reviewer request](https://github.com/rebar/rebar/pull/514)
+* rebar/518: [Generate reserved file for erlc regression test](https://github.com/rebar/rebar/pull/518)
+* rebar/520: [Fixed version of #451](https://github.com/rebar/rebar/pull/520)
+* rebar/521: [rebar_utils: fix comment](https://github.com/rebar/rebar/pull/521)
+* rebar/522: [Fixed version of #395](https://github.com/rebar/rebar/pull/522)
+* rebar/524: [completion: add libid= to bash and zsh scripts](https://github.com/rebar/rebar/pull/524)
+* rebar/530: [Allow behaviors defined inside xref_extra_path](https://github.com/rebar/rebar/pull/530)
+* rebar/535: [Add regression test for covered common test](https://github.com/rebar/rebar/pull/535)
+* rebar/537: [Fix eunit test on OTP18](https://github.com/rebar/rebar/pull/537)
+* rebar/538: [Fix #536](https://github.com/rebar/rebar/pull/538)
+* rebar/539: [Add erl_first_files in eunit_first_files and qc_first_files](https://github.com/rebar/rebar/pull/539)
+* rebar/540: [Complete port compiler help string](https://github.com/rebar/rebar/pull/540)
+* rebar/543: [rmemo: use a better R13 check (Reported-by: Stavros Aronis)](https://github.com/rebar/rebar/pull/543)
+* rebar/545: [Fix #544](https://github.com/rebar/rebar/pull/545)
+* rebar/546: [Added report and verbose options for LFE compile.](https://github.com/rebar/rebar/pull/546)
+
 # 2.6.0
 
 * rebar/203: [Pluggable proto compilers gpb](https://github.com/rebar/rebar/pull/203)

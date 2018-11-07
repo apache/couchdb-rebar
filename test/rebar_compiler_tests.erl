@@ -30,8 +30,6 @@
 %% -------------------------------------------------------------------
 -module(rebar_compiler_tests).
 
--compile(export_all).
-
 -include_lib("eunit/include/eunit.hrl").
 
 %% Assuming this test is run inside the rebar 'eunit'
@@ -84,11 +82,11 @@ not_keep_going_test_() ->
      setup,
      fun() ->
              setup_basic_project(),
-             setup_rebar_config(),
-             rebar("compile")
+             setup_rebar_config()
      end,
      fun teardown/1,
-     fun(RebarOut)->
+     fun()->
+             RebarOut = rebar("compile"),
              [
               {"Exit after error",
                ?_assert(string:str(RebarOut, "ERROR: compile failed") =/= 0)}
@@ -167,18 +165,10 @@ prepare_rebar_script() ->
                                 ?TMP_DIR ++ "rebar.cmd")
     end.
 
-rebar() ->
-    rebar([]).
-
 rebar(Args) when is_list(Args) ->
     Out = os:cmd(filename:nativename("./rebar") ++ " " ++ Args),
     %% ?debugMsg("**** Begin"), ?debugMsg(Out), ?debugMsg("**** End"),
     Out.
-
-assert_dirs_in(Name, [Dir|T]) ->
-    [{Name ++ " has directory: " ++ Dir, ?_assert(filelib:is_dir(Dir))} |
-         assert_dirs_in(Name, T)];
-assert_dirs_in(_, []) -> [].
 
 assert_files_in(Name, [File|T]) ->
     [{Name ++ " has file: " ++ File, ?_assert(filelib:is_regular(File))} |

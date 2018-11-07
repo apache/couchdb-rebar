@@ -54,9 +54,12 @@
          "foo_worker.beam",
          "SIMPLE-ASN.beam"]).
 
+setup([Target]) ->
+  retest_utils:load_module(filename:join(Target, "inttest_utils.erl")),
+  ok.
+
 files() ->
     [
-     {copy, "../../rebar", "rebar"},
      {copy, "rebar.config", "rebar.config"},
      {copy, "rebar-no_debug_info.config", "rebar-no_debug_info.config"},
      {copy, "include", "include"},
@@ -66,10 +69,14 @@ files() ->
      {copy, "mibs", "mibs"},
      {copy, "asn1", "asn1"},
      {create, "ebin/foo.app", app(foo, ?MODULES)},
+     {create, "src/._do_not_compile.erl",
+              "syntax error\n"
+              "this file is here to verify that rebar does not try to compile\n"
+              "files like OS X resource forks and should not be processed at all\n"},
      %% deps
      {create, "deps/foobar/ebin/foobar.app", app(foobar, [foobar])},
      {copy, "foobar.erl", "deps/foobar/src/foobar.erl"}
-    ].
+    ] ++ inttest_utils:rebar_setup().
 
 run(_Dir) ->
     ?assertMatch({ok, _}, retest_sh:run("./rebar compile", [])),

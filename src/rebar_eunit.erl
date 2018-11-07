@@ -54,8 +54,8 @@
 %%   </li>
 %%   <li>
 %%      tests="baz"- For every existing suite, run the first test whose
-%%      name starts with bar and, if no such test exists, run the test
-%%      whose name starts with bar in the suite's _tests module
+%%      name starts with baz and, if no such test exists, run the test
+%%      whose name starts with baz in the suite's _tests module
 %%   </li>
 %% </ul>
 %% Additionally, for projects that have separate folders for the core
@@ -128,6 +128,7 @@ info_help(Description) ->
        "               name starts with bar and, if no such test exists,~n"
        "               run the test whose name starts with bar in the~n"
        "               suite's _tests module)~n"
+       "  test[s]=\"foo:bar_test\" (Run bar_test located in module foo)~n"
        "  random_suite_order=true (Run tests in random order)~n"
        "  random_suite_order=Seed (Run tests in random order,~n"
        "                           with the PRNG seeded with Seed)~n"
@@ -292,9 +293,9 @@ randomize_suites(Config, Modules) ->
     end.
 
 randomize_suites1(Modules, Seed) ->
-    _ = random:seed(35, Seed, 1337),
+    _ = rebar_rnd:seed({35, Seed, 1337}),
     ?CONSOLE("Randomizing suite order with seed ~b~n", [Seed]),
-    [X||{_,X} <- lists:sort([{random:uniform(), M} || M <- Modules])].
+    [X||{_,X} <- lists:sort([{rebar_rnd:uniform(), M} || M <- Modules])].
 
 %%
 %% == get matching tests ==
@@ -460,7 +461,7 @@ make_test_primitives(RawTests) ->
                             %% Generator
                             MakePrimitive(generator, M, F2)
                     end,
-                [NewFunction|Acc]
+                [eunit_module_suite(M, NewFunction)|Acc]
         end,
     lists:foldl(F, [], RawTests).
 
@@ -471,6 +472,11 @@ pre15b02_eunit_primitive(test, M, F) ->
     eunit_test:function_wrapper(M, F);
 pre15b02_eunit_primitive(generator, M, F) ->
     {generator, eunit_test:function_wrapper(M, F)}.
+
+% Add a test group for eunit_surefire to be able to deduce the testsuite.
+% Calling eunit:test({module, M}) does exactly this as well.
+eunit_module_suite(M, X) ->
+    {"module '" ++ atom_to_list(M) ++ "'", X}.
 
 %%
 %% == run tests ==

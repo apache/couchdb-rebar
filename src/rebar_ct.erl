@@ -66,6 +66,7 @@ info(help, ct) ->
        "  ~p~n"
        "  ~p~n"
        "  ~p~n"
+       "  ~p~n"
        "Valid command line options:~n"
        "  suites=Suite1,Suite2,...,SuiteN~n"
        "      - run Suite1_SUITE, Suite2_SUITE, ..., SuiteN_SUITE~n"
@@ -81,7 +82,8 @@ info(help, ct) ->
         {ct_dir, "itest"},
         {ct_log_dir, "test/logs"},
         {ct_extra_params, "-boot start_sasl -s myapp"},
-        {ct_use_short_names, true}
+        {ct_use_short_names, true},
+        {ct_search_specs_from_test_dir, false}
        ]).
 
 run_test_if_present(TestDir, LogDir, Config, File) ->
@@ -113,7 +115,12 @@ run_test(TestDir, LogDir, Config, _File) ->
                  false ->
                      " >> " ++ RawLog ++ " 2>&1";
                  true ->
+                 case os:type() of
+                   {win32, nt} ->
+                     " >> " ++ RawLog ++ " 2>&1";
+                   _ ->
                      " 2>&1 | tee -a " ++ RawLog
+                 end
              end,
 
     ShOpts = [{env,[{"TESTDIR", TestDir}]}, return_on_error],
@@ -155,14 +162,27 @@ failure_logger(Command, {Rc, Output}) ->
 check_fail_log(Config, RawLog, Command, Result) ->
     check_log(Config, RawLog, failure_logger(Command, Result)).
 
-check_log(Config,RawLog,Fun) ->
-    {ok, Msg} =
-        rebar_utils:sh("grep -e \"TEST COMPLETE\" -e \"{error,make_failed}\" "
-                       ++ RawLog, [{use_stdout, false}]),
-    MakeFailed = string:str(Msg, "{error,make_failed}") =/= 0,
-    RunFailed = string:str(Msg, ", 0 failed") =:= 0,
+check_log(Config,RawLogFilename,Fun) ->
+    %% read the file and split into a list separated by newlines
+    {ok, RawLog} = file:read_file(RawLogFilename),
+    Msg = string:tokens(binary_to_list(RawLog), "\n"),
+    %% now filter out all the list entries that do not have test
+    %% completion strings
+    CompleteRuns = lists:filter(fun(M) ->
+                                  string:str(M, "TEST COMPLETE") =/= 0
+                                end, Msg),
+    MakeFailed = lists:filter(fun(M) ->
+                                  string:str(M, "{error,make_failed}") =/= 0
+                              end, Msg),
+    %% the run has failed if at least one of the tests failed
+    RunFailed = lists:foldl(fun(M, Acc) ->
+                              %% the "0 failed" string must be present for
+                              %% the test to be considered successful
+                              TestFailed = string:str(M, "0 failed") =:= 0,
+                              TestFailed orelse Acc
+                            end, false, CompleteRuns),
     if
-        MakeFailed ->
+        MakeFailed =/= [] ->
             show_log(Config, RawLog),
             ?ERROR("Building tests failed\n",[]),
             ?FAIL;
@@ -173,7 +193,7 @@ check_log(Config,RawLog,Fun) ->
             ?FAIL;
 
         true ->
-            Fun(Msg)
+            Fun(string:join(Msg, "\n"))
     end.
 
 
@@ -182,8 +202,7 @@ show_log(Config, RawLog) ->
     ?CONSOLE("Showing log\n", []),
     case rebar_log:is_verbose(Config) of
         false ->
-            {ok, Contents} = file:read_file(RawLog),
-            ?CONSOLE("~s", [Contents]);
+            ?CONSOLE("~s", [RawLog]);
         true ->
             ok
     end.
@@ -218,7 +237,7 @@ make_cmd(TestDir, RawLogDir, Config) ->
     CodeDirs = [io_lib:format("\"~s\"", [Dir]) ||
                    Dir <- [EbinDir|NonLibCodeDirs]],
     CodePathString = string:join(CodeDirs, " "),
-    Cmd = case get_ct_specs(Config, Cwd) of
+    Cmd = case get_ct_specs(Config, search_ct_specs_from(Cwd, TestDir, Config)) of
               undefined ->
                   ?FMT("~s"
                        " -pa ~s"
@@ -259,10 +278,20 @@ make_cmd(TestDir, RawLogDir, Config) ->
     RawLog = filename:join(LogDir, "raw.log"),
     {Cmd, RawLog}.
 
+search_ct_specs_from(Cwd, TestDir, Config) ->
+    case rebar_config:get_local(Config, ct_search_specs_from_test_dir, false) of
+        true -> filename:join(Cwd, TestDir);
+        false ->
+          Cwd
+    end.
+
 build_name(Config) ->
+    %% generate a unique name for our test node, we want
+    %% to make sure the odds of name clashing are low
+    Random = integer_to_list(crypto:rand_uniform(0, 10000)),
     case rebar_config:get_local(Config, ct_use_short_names, false) of
-        true -> "-sname test";
-        false -> " -name test@" ++ net_adm:localhost()
+        true -> "-sname test" ++ Random;
+        false -> " -name test" ++ Random ++ "@" ++ net_adm:localhost()
     end.
 
 get_extra_params(Config) ->

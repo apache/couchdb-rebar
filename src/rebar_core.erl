@@ -106,7 +106,7 @@ process_commands([Command | Rest], ParentConfig) ->
                                                       ParentConfig2),
             %% Wipe out vsn cache to avoid invalid hits when
             %% dependencies are updated
-            rebar_config:set_xconf(ParentConfig3, vsn_cache, dict:new())
+            rebar_utils:init_vsn_cache(ParentConfig3)
         catch
             throw:rebar_abort ->
                 case rebar_config:get_xconf(ParentConfig1, keep_going, false) of
@@ -190,8 +190,8 @@ skip_or_process_dir(Dir, Command, Config, DirSet, CurrentCodePath,
                  WouldCd);
 skip_or_process_dir(Dir, Command, Config, DirSet, CurrentCodePath,
                     {_, File}=ModuleSet, WouldCd) ->
-    case lists:suffix(".app.src", File)
-        orelse lists:suffix(".app", File) of
+    case lists:suffix(".app", File)
+        orelse rebar_app_utils:is_app_src(File) of
         true ->
             %% .app or .app.src file, check if is_skipped_app
             skip_or_process_dir1(Dir, Command, Config, DirSet, CurrentCodePath,

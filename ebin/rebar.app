@@ -3,7 +3,7 @@
 
 {application, rebar,
  [{description, "Rebar: Erlang Build Tool"},
-  {vsn, "2.6.0"},
+  {vsn, "2.6.4"},
   {modules, [ rebar,
               rebar_abnfc_compiler,
               rebar_app_utils,
@@ -46,7 +46,8 @@
               rebar_metacmds,
               rebar_getopt,
               rebar_mustache,
-              rmemo ]},
+              rmemo,
+              rebar_rand_compat ]},
   {registered, []},
   {applications,
    [
@@ -67,6 +68,9 @@
   {env, [
          %% Default log level
          {log_level, warn},
+
+         %% Log colored
+         {log_colored, uncolored},
 
          %% any_dir processing modules
          {any_dir_modules, [

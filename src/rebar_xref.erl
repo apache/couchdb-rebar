@@ -40,6 +40,8 @@
 %% for internal use only
 -export([info/2]).
 
+-dialyzer({no_opaque, find_function_source/4}).
+
 %% ===================================================================
 %% Public API
 %% ===================================================================
@@ -58,6 +60,11 @@ xref(Config, _) ->
     %% Save the code path prior to doing anything
     OrigPath = code:get_path(),
     true = code:add_path(rebar_utils:ebin_dir()),
+
+    %% Add extra paths to code path to, for example, be used
+    %% when behaviour modules are defined.
+    lists:foreach(fun(P) -> true = code:add_path(P) end,
+                  rebar_config:get(Config, xref_extra_paths, [])),
 
     %% Get list of xref checks we want to run
     ConfXrefChecks = rebar_config:get(Config, xref_checks,

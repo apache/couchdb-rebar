@@ -35,65 +35,16 @@
 
 -include("rebar.hrl").
 
-%% ===================================================================
-%% Public API
-%% ===================================================================
-
-%% Supported configuration variables:
-%%
-%% * port_specs - Erlang list of tuples of the forms
-%%                {ArchRegex, TargetFile, Sources, Options}
-%%                {ArchRegex, TargetFile, Sources}
-%%                {TargetFile, Sources}
-%%
-%% * port_env - Erlang list of key/value pairs which will control
-%%              the environment when running the compiler and linker.
-%%
-%%              By default, the following variables are defined:
-%%              CC       - C compiler
-%%              CXX      - C++ compiler
-%%              CFLAGS   - C compiler
-%%              CXXFLAGS - C++ compiler
-%%              LDFLAGS  - Link flags
-%%              ERL_CFLAGS  - default -I paths for erts and ei
-%%              ERL_LDFLAGS - default -L and -lerl_interface -lei
-%%              DRV_CFLAGS  - flags that will be used for compiling
-%%              DRV_LDFLAGS - flags that will be used for linking
-%%              EXE_CFLAGS  - flags that will be used for compiling
-%%              EXE_LDFLAGS - flags that will be used for linking
-%%              ERL_EI_LIBDIR - ei library directory
-%%              DRV_CXX_TEMPLATE  - C++ command template
-%%              DRV_CC_TEMPLATE   - C command template
-%%              DRV_LINK_TEMPLATE - Linker command template
-%%              EXE_CXX_TEMPLATE  - C++ command template
-%%              EXE_CC_TEMPLATE   - C command template
-%%              EXE_LINK_TEMPLATE - Linker command template
-%%              PORT_IN_FILES - contains a space separated list of input
-%%                   file(s), (used in command template)
-%%              PORT_OUT_FILE - contains the output filename (used in
-%%                   command template)
-%%
-%%              Note that if you wish to extend (vs. replace) these variables,
-%%              you MUST include a shell-style reference in your definition.
-%%              e.g. to extend CFLAGS, do something like:
-%%
-%%              {port_env, [{"CFLAGS", "$CFLAGS -MyOtherOptions"}]}
-%%
-%%              It is also possible to specify platform specific options
-%%              by specifying a triplet where the first string is a regex
-%%              that is checked against Erlang's system architecture string.
-%%              e.g. to specify a CFLAG that only applies to x86_64 on linux
-%%              do:
-%%
-%%              {port_env, [{"x86_64.*-linux", "CFLAGS",
-%%                           "$CFLAGS -X86Options"}]}
-%%
-
 -record(spec, {type::'drv' | 'exe',
+               link_lang::'cc' | 'cxx',
                target::file:filename(),
                sources = [] :: [file:filename(), ...],
                objects = [] :: [file:filename(), ...],
-               opts = [] ::list() | []}).
+               opts = [] :: list() | []}).
+
+%% ===================================================================
+%% Public API
+%% ===================================================================
 
 compile(Config, AppFile) ->
     case get_specs(Config, AppFile) of
@@ -115,13 +66,15 @@ compile(Config, AppFile) ->
             %% Only relink if necessary, given the Target
             %% and list of new binaries
             lists:foreach(
-              fun(#spec{target=Target, objects=Bins, opts=Opts}) ->
+              fun(#spec{target=Target, objects=Bins, opts=Opts,
+                        link_lang=LinkLang}) ->
                       AllBins = [sets:from_list(Bins),
                                  sets:from_list(NewBins)],
                       Intersection = sets:intersection(AllBins),
                       case needs_link(Target, sets:to_list(Intersection)) of
                           true ->
-                              LinkTemplate = select_link_template(Target),
+                              LinkTemplate = select_link_template(LinkLang,
+                                                                  Target),
                               Env = proplists:get_value(env, Opts, SharedEnv),
                               Cmd = expand_command(LinkTemplate, Env,
                                                    string:join(Bins, " "),
@@ -164,12 +117,64 @@ info_help(Description) ->
        "~s.~n"
        "~n"
        "Valid rebar.config options:~n"
-       "  ~p~n"
-       "  ~p~n",
+       "port_specs - Erlang list of tuples of the forms~n"
+       "             {ArchRegex, TargetFile, Sources, Options}~n"
+       "             {ArchRegex, TargetFile, Sources}~n"
+       "             {TargetFile, Sources}~n"
+       "~n"
+       "             Examples:~n"
+       "             ~p~n"
+       "~n"
+       "port_env - Erlang list of key/value pairs which will control~n"
+       "           the environment when running the compiler and linker.~n"
+       "           Variables set in the surrounding system shell are taken~n"
+       "           into consideration when expanding port_env.~n"
+       "~n"
+       "           By default, the following variables are defined:~n"
+       "           CC       - C compiler~n"
+       "           CXX      - C++ compiler~n"
+       "           CFLAGS   - C compiler~n"
+       "           CXXFLAGS - C++ compiler~n"
+       "           LDFLAGS  - Link flags~n"
+       "           ERL_CFLAGS  - default -I paths for erts and ei~n"
+       "           ERL_LDFLAGS - default -L and -lerl_interface -lei~n"
+       "           DRV_CFLAGS  - flags that will be used for compiling~n"
+       "           DRV_LDFLAGS - flags that will be used for linking~n"
+       "           EXE_CFLAGS  - flags that will be used for compiling~n"
+       "           EXE_LDFLAGS - flags that will be used for linking~n"
+       "           ERL_EI_LIBDIR - ei library directory~n"
+       "           DRV_CXX_TEMPLATE      - C++ command template~n"
+       "           DRV_CC_TEMPLATE       - C command template~n"
+       "           DRV_LINK_TEMPLATE     - C Linker command template~n"
+       "           DRV_LINK_CXX_TEMPLATE - C++ Linker command template~n"
+       "           EXE_CXX_TEMPLATE      - C++ command template~n"
+       "           EXE_CC_TEMPLATE       - C command template~n"
+       "           EXE_LINK_TEMPLATE     - C Linker command template~n"
+       "           EXE_LINK_CXX_TEMPLATE - C++ Linker command template~n"
+       "~n"
+       "           Note that if you wish to extend (vs. replace) these variables,~n"
+       "           you MUST include a shell-style reference in your definition.~n"
+       "           e.g. to extend CFLAGS, do something like:~n"
+       "~n"
+       "           {port_env, [{\"CFLAGS\", \"$CFLAGS -MyOtherOptions\"}]}~n"
+       "~n"
+       "           It is also possible to specify platform specific options~n"
+       "           by specifying a triplet where the first string is a regex~n"
+       "           that is checked against Erlang's system architecture string.~n"
+       "           e.g. to specify a CFLAG that only applies to x86_64 on linux~n"
+       "           do:~n"
+       "           {port_env, [{\"x86_64.*-linux\", \"CFLAGS\",~n"
+       "                        \"$CFLAGS -X86Options\"}]}~n"
+       "~n"
+       "Cross-arch environment variables to configure toolchain:~n"
+       "  REBAR_TARGET_ARCH to set the tool chain name to use~n"
+       "  REBAR_TARGET_ARCH_WORDSIZE (optional - "
+       "if CC fails to determine word size)~n"
+       "  fallback word size is 32~n"
+       "  REBAR_TARGET_ARCH_VSN (optional - "
+       "if a special version of CC/CXX is requested)~n",
        [
         Description,
-        {port_env, [{"CFLAGS", "$CFLAGS -Ifoo"},
-                    {"freebsd", "LDFLAGS", "$LDFLAGS -lfoo"}]},
         {port_specs, [{"priv/so_name.so", ["c_src/*.c"]},
                       {"linux", "priv/hello_linux", ["c_src/hello_linux.c"]},
                       {"linux", "priv/hello_linux", ["c_src/*.c"], [{env, []}]}]}
@@ -183,8 +188,10 @@ setup_env(Config, ExtraEnv) ->
 
     %% Get any port-specific envs; use port_env first and then fallback
     %% to port_envs for compatibility
-    RawPortEnv = rebar_config:get_list(Config, port_env,
-                          rebar_config:get_list(Config, port_envs, [])),
+    RawPortEnv = rebar_config:get_list(
+                   Config,
+                   port_env,
+                   rebar_config:get_list(Config, port_envs, [])),
 
     PortEnv = filter_env(RawPortEnv, []),
     Defines = get_defines(Config),
@@ -209,28 +216,71 @@ replace_extension(File, OldExt, NewExt) ->
 %%
 
 compile_sources(Config, Specs, SharedEnv) ->
-    lists:foldl(
-      fun(#spec{sources=Sources, type=Type, opts=Opts}, NewBins) ->
-              Env = proplists:get_value(env, Opts, SharedEnv),
-              compile_each(Config, Sources, Type, Env, NewBins)
-      end, [], Specs).
+    {NewBins, Db} =
+        lists:foldl(
+          fun(#spec{sources=Sources, type=Type, opts=Opts}, Acc) ->
+                  Env = proplists:get_value(env, Opts, SharedEnv),
+                  compile_each(Config, Sources, Type, Env, Acc)
+          end, {[], []}, Specs),
+    %% Rewrite clang compile commands database file only if something
+    %% was compiled.
+    case NewBins of
+        [] ->
+            ok;
+        _ ->
+            {ok, ClangDbFile} = file:open("compile_commands.json", [write]),
+            ok = io:fwrite(ClangDbFile, "[~n", []),
+            lists:foreach(fun(E) -> ok = io:fwrite(ClangDbFile, E, []) end, Db),
+            ok = io:fwrite(ClangDbFile, "]~n", []),
+            ok = file:close(ClangDbFile)
+    end,
+    NewBins.
 
-compile_each(_Config, [], _Type, _Env, NewBins) ->
-    lists:reverse(NewBins);
-compile_each(Config, [Source | Rest], Type, Env, NewBins) ->
+compile_each(_Config, [], _Type, _Env, {NewBins, CDB}) ->
+    {lists:reverse(NewBins), lists:reverse(CDB)};
+compile_each(Config, [Source | Rest], Type, Env, {NewBins, CDB}) ->
     Ext = filename:extension(Source),
     Bin = replace_extension(Source, Ext, ".o"),
+    Template = select_compile_template(Type, compiler(Ext)),
+    Cmd = expand_command(Template, Env, Source, Bin),
+    CDBEnt = cdb_entry(Source, Cmd, Rest),
+    NewCDB = [CDBEnt | CDB],
     case needs_compile(Source, Bin) of
         true ->
-            Template = select_compile_template(Type, compiler(Ext)),
-            Cmd = expand_command(Template, Env, Source, Bin),
             ShOpts = [{env, Env}, return_on_error, {use_stdout, false}],
             exec_compiler(Config, Source, Cmd, ShOpts),
-            compile_each(Config, Rest, Type, Env, [Bin | NewBins]);
+            compile_each(Config, Rest, Type, Env,
+                         {[Bin | NewBins], NewCDB});
         false ->
             ?INFO("Skipping ~s\n", [Source]),
-            compile_each(Config, Rest, Type, Env, NewBins)
+            compile_each(Config, Rest, Type, Env, {NewBins, NewCDB})
     end.
+
+%% Generate a clang compilation db entry for Src and Cmd
+cdb_entry(Src, Cmd, SrcRest) ->
+    %% Omit all variables from cmd, and use that as cmd in
+    %% CDB, because otherwise clang-* will complain about it.
+    CDBCmd = string:join(
+               lists:filter(
+                 fun("$"++_) -> false;
+                    (_)      -> true
+                 end,
+                 string:tokens(Cmd, " ")),
+               " "),
+
+    Cwd = rebar_utils:get_cwd(),
+    %% If there are more source files, make sure we end the CDB entry
+    %% with a comma.
+    Sep = case SrcRest of
+              [] -> "~n";
+              _  -> ",~n"
+          end,
+    %% CDB entry
+    ?FMT("{ \"file\"      : ~p~n"
+         ", \"directory\" : ~p~n"
+         ", \"command\"   : ~p~n"
+         "}~s",
+         [Src, Cwd, CDBCmd, Sep]).
 
 exec_compiler(Config, Source, Cmd, ShOpts) ->
     case rebar_utils:sh(Cmd, ShOpts) of
@@ -321,6 +371,7 @@ port_spec_from_legacy(Config, AppFile) ->
     Sources = port_sources(rebar_config:get_list(Config, port_sources,
                                                  ["c_src/*.c"])),
     #spec { type = target_type(Target),
+            link_lang = cc,
             target = maybe_switch_extension(os:type(), Target),
             sources = Sources,
             objects = port_objects(Sources) }.
@@ -341,9 +392,18 @@ get_port_spec(Config, OsType, {Arch, Target, Sources}) ->
     get_port_spec(Config, OsType, {Arch, Target, Sources, []});
 get_port_spec(Config, OsType, {_Arch, Target, Sources, Opts}) ->
     SourceFiles = port_sources(Sources),
+    LinkLang =
+        case lists:any(
+               fun(Src) -> compiler(filename:extension(Src)) == "$CXX" end,
+               SourceFiles)
+        of
+            true  -> cxx;
+            false -> cc
+        end,
     ObjectFiles = port_objects(SourceFiles),
     #spec{type=target_type(Target),
           target=maybe_switch_extension(OsType, Target),
+          link_lang=LinkLang,
           sources=SourceFiles,
           objects=ObjectFiles,
           opts=port_opts(Config, Opts)}.
@@ -546,10 +606,12 @@ select_compile_drv_template("$CXX") -> "DRV_CXX_TEMPLATE".
 select_compile_exe_template("$CC")  -> "EXE_CC_TEMPLATE";
 select_compile_exe_template("$CXX") -> "EXE_CXX_TEMPLATE".
 
-select_link_template(Target) ->
-    case target_type(Target) of
-        drv -> "DRV_LINK_TEMPLATE";
-        exe -> "EXE_LINK_TEMPLATE"
+select_link_template(LinkLang, Target) ->
+    case {LinkLang, target_type(Target)} of
+        {cc,  drv} -> "DRV_LINK_TEMPLATE";
+        {cxx, drv} -> "DRV_LINK_CXX_TEMPLATE";
+        {cc,  exe} -> "EXE_LINK_TEMPLATE";
+        {cxx, exe} -> "EXE_LINK_CXX_TEMPLATE"
     end.
 
 target_type(Target) -> target_type1(filename:extension(Target)).
@@ -568,29 +630,48 @@ erl_interface_dir(Subdir) ->
     end.
 
 default_env() ->
+    Arch = os:getenv("REBAR_TARGET_ARCH"),
+    Vsn = os:getenv("REBAR_TARGET_ARCH_VSN"),
     [
-     {"CC" , "cc"},
-     {"CXX", "c++"},
+     {"CC", get_tool(Arch, Vsn, "gcc", "cc")},
+     {"CXX", get_tool(Arch, Vsn, "g++", "c++")},
+     {"AR", get_tool(Arch, "ar", "ar")},
+     {"AS", get_tool(Arch, "as", "as")},
+     {"CPP", get_tool(Arch, Vsn, "cpp", "cpp")},
+     {"LD", get_tool(Arch, "ld", "ld")},
+     {"RANLIB", get_tool(Arch, Vsn, "ranlib", "ranlib")},
+     {"STRIP", get_tool(Arch, "strip", "strip")},
+     {"NM", get_tool(Arch, "nm", "nm")},
+     {"OBJCOPY", get_tool(Arch, "objcopy", "objcopy")},
+     {"OBJDUMP", get_tool(Arch, "objdump", "objdump")},
+
      {"DRV_CXX_TEMPLATE",
       "$CXX -c $CXXFLAGS $DRV_CFLAGS $PORT_IN_FILES -o $PORT_OUT_FILE"},
      {"DRV_CC_TEMPLATE",
       "$CC -c $CFLAGS $DRV_CFLAGS $PORT_IN_FILES -o $PORT_OUT_FILE"},
      {"DRV_LINK_TEMPLATE",
       "$CC $PORT_IN_FILES $LDFLAGS $DRV_LDFLAGS -o $PORT_OUT_FILE"},
+     {"DRV_LINK_CXX_TEMPLATE",
+      "$CXX $PORT_IN_FILES $LDFLAGS $DRV_LDFLAGS -o $PORT_OUT_FILE"},
      {"EXE_CXX_TEMPLATE",
       "$CXX -c $CXXFLAGS $EXE_CFLAGS $PORT_IN_FILES -o $PORT_OUT_FILE"},
      {"EXE_CC_TEMPLATE",
       "$CC -c $CFLAGS $EXE_CFLAGS $PORT_IN_FILES -o $PORT_OUT_FILE"},
      {"EXE_LINK_TEMPLATE",
       "$CC $PORT_IN_FILES $LDFLAGS $EXE_LDFLAGS -o $PORT_OUT_FILE"},
+     {"EXE_LINK_CXX_TEMPLATE",
+      "$CXX $PORT_IN_FILES $LDFLAGS $EXE_LDFLAGS -o $PORT_OUT_FILE"},
      {"DRV_CFLAGS" , "-g -Wall -fPIC -MMD $ERL_CFLAGS"},
      {"DRV_LDFLAGS", "-shared $ERL_LDFLAGS"},
      {"EXE_CFLAGS" , "-g -Wall -fPIC -MMD $ERL_CFLAGS"},
      {"EXE_LDFLAGS", "$ERL_LDFLAGS"},
 
-     {"ERL_CFLAGS", lists:concat([" -I\"", erl_interface_dir(include),
-                                  "\" -I\"", filename:join(erts_dir(), "include"),
-                                  "\" "])},
+     {"ERL_CFLAGS", lists:concat(
+                      [
+                       " -I\"", erl_interface_dir(include),
+                       "\" -I\"", filename:join(erts_dir(), "include"),
+                       "\" "
+                      ])},
      {"ERL_EI_LIBDIR", lists:concat(["\"", erl_interface_dir(lib), "\""])},
      {"ERL_LDFLAGS"  , " -L$ERL_EI_LIBDIR -lerl_interface -lei"},
      {"ERLANG_ARCH"  , rebar_utils:wordsize()},
@@ -604,20 +685,20 @@ default_env() ->
      {"solaris.*-64$", "CXXFLAGS", "-D_REENTRANT -m64 $CXXFLAGS"},
      {"solaris.*-64$", "LDFLAGS", "-m64 $LDFLAGS"},
 
-     %% Linux specific flags for multiarch
-     {"linux.*-64$", "CFLAGS", "-m64 $CFLAGS"},
-     {"linux.*-64$", "CXXFLAGS", "-m64 $CXXFLAGS"},
-     {"linux.*-64$", "LDFLAGS", "$LDFLAGS"},
-
      %% OS X Leopard flags for 64-bit
      {"darwin9.*-64$", "CFLAGS", "-m64 $CFLAGS"},
      {"darwin9.*-64$", "CXXFLAGS", "-m64 $CXXFLAGS"},
-     {"darwin9.*-64$", "LDFLAGS", "-arch x86_64 $LDFLAGS"},
+     {"darwin9.*-64$", "LDFLAGS", "-arch x86_64 -flat_namespace -undefined suppress $LDFLAGS"},
+
+     %% OS X Lion onwards flags for 64-bit
+     {"darwin1[0-4].*-64$", "CFLAGS", "-m64 $CFLAGS"},
+     {"darwin1[0-4].*-64$", "CXXFLAGS", "-m64 $CXXFLAGS"},
+     {"darwin1[0-4].*-64$", "LDFLAGS", "-arch x86_64 -flat_namespace -undefined suppress $LDFLAGS"},
 
      %% OS X Snow Leopard, Lion, and Mountain Lion flags for 32-bit
      {"darwin1[0-2].*-32", "CFLAGS", "-m32 $CFLAGS"},
      {"darwin1[0-2].*-32", "CXXFLAGS", "-m32 $CXXFLAGS"},
-     {"darwin1[0-2].*-32", "LDFLAGS", "-arch i386 $LDFLAGS"},
+     {"darwin1[0-2].*-32", "LDFLAGS", "-arch i386 -flat_namespace -undefined suppress $LDFLAGS"},
 
      %% Windows specific flags
      %% add MS Visual C++ support to rebar on Windows
@@ -639,7 +720,17 @@ default_env() ->
      {"win32", "EXE_LINK_TEMPLATE",
       "$LINKER $PORT_IN_FILES $LDFLAGS $EXE_LDFLAGS /OUT:$PORT_OUT_FILE"},
      %% ERL_CFLAGS are ok as -I even though strictly it should be /I
-     {"win32", "ERL_LDFLAGS", " /LIBPATH:$ERL_EI_LIBDIR erl_interface.lib ei.lib"},
+     {"win32", "ERL_LDFLAGS",
+      " /LIBPATH:$ERL_EI_LIBDIR erl_interface.lib ei.lib"},
      {"win32", "DRV_CFLAGS", "/Zi /Wall $ERL_CFLAGS"},
      {"win32", "DRV_LDFLAGS", "/DLL $ERL_LDFLAGS"}
     ].
+
+get_tool(Arch, Tool, Default) ->
+    get_tool(Arch, false, Tool, Default).
+
+get_tool(false, _, _, Default) -> Default;
+get_tool("", _, _, Default) -> Default;
+get_tool(Arch, false, Tool, _Default) -> Arch++"-"++Tool;
+get_tool(Arch, "", Tool, _Default) -> Arch++"-"++Tool;
+get_tool(Arch, Vsn, Tool, _Default) -> Arch++"-"++Tool++"-"++Vsn.

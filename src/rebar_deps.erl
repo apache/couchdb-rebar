@@ -58,16 +58,19 @@ preprocess(Config, _) ->
     %% used globally since it will be set on the first time through here
     Config1 = set_shared_deps_dir(Config, get_shared_deps_dir(Config, [])),
 
+    %% Check whether user forced deps resolution via system wide libs
+    Config2 = set_deps_prefer_libs(Config1, get_deps_prefer_libs(Config1, undefined)),
+
     %% Get the list of deps for the current working directory and identify those
     %% deps that are available/present.
-    Deps = rebar_config:get_local(Config1, deps, []),
-    {Config2, {AvailableDeps, MissingDeps}} = find_deps(Config1, find, Deps),
+    Deps = rebar_config:get_local(Config2, deps, []),
+    {Config3, {AvailableDeps, MissingDeps}} = find_deps(Config2, find, Deps),
 
     ?DEBUG("Available deps: ~p\n", [AvailableDeps]),
     ?DEBUG("Missing deps  : ~p\n", [MissingDeps]),
 
     %% Add available deps to code path
-    Config3 = update_deps_code_path(Config2, AvailableDeps),
+    Config4 = update_deps_code_path(Config3, AvailableDeps),
 
     %% Filtering out 'raw' dependencies so that no commands other than
     %% deps-related can be executed on their directories.
@@ -83,8 +86,8 @@ preprocess(Config, _) ->
                           fun(D, Acc) ->
                                   rebar_config:set_skip_dir(Acc, D#dep.dir)
                           end,
-                          Config3,
-                          collect_deps(rebar_utils:get_cwd(), Config3)),
+                          Config4,
+                          collect_deps(rebar_utils:get_cwd(), Config4)),
             %% Return the empty list, as we don't want anything processed before
             %% us.
             {ok, NewConfig, []};
@@ -97,12 +100,12 @@ preprocess(Config, _) ->
             %% Also, if skip_deps=comma,separated,app,list, then only the given
             %% dependencies are skipped.
             NewConfig =
-                case rebar_config:get_global(Config3, skip_deps, false) of
+                case rebar_config:get_global(Config4, skip_deps, false) of
                     "true" ->
                         lists:foldl(
                           fun(#dep{dir = Dir}, C) ->
                                   rebar_config:set_skip_dir(C, Dir)
-                          end, Config3, AvailableDeps);
+                          end, Config4, AvailableDeps);
                     Apps when is_list(Apps) ->
                         SkipApps = [list_to_atom(App) ||
                                        App <- string:tokens(Apps, ",")],
@@ -112,9 +115,9 @@ preprocess(Config, _) ->
                                       true -> rebar_config:set_skip_dir(C, Dir);
                                       false -> C
                                   end
-                          end, Config3, AvailableDeps);
+                          end, Config4, AvailableDeps);
                     _ ->
-                        Config3
+                        Config4
                 end,
 
             %% Return all the available dep directories for process
@@ -254,7 +257,9 @@ info_help(Description) ->
        "  ~p~n"
        "  ~p~n"
        "Valid command line options:~n"
-       "  deps_dir=\"deps\" (override default or rebar.config deps_dir)~n",
+       "  deps_dir=\"deps\" (override default or rebar.config deps_dir)~n"
+       "Environment variables:~n"
+       "  REBAR_DEPS_PREFER_LIBS to look for dependecies in system libs prior fetching.~n",
        [
         Description,
         {deps_dir, "deps"},
@@ -263,13 +268,22 @@ info_help(Description) ->
           {rebar, "1.0.*"},
           {rebar, ".*",
            {git, "git://github.com/rebar/rebar.git"}},
+          {rebar,
+           {git, "git://github.com/rebar/rebar.git"}},
           {rebar, ".*",
            {git, "git://github.com/rebar/rebar.git", "Rev"}},
+          {rebar,
+           {git, "git://github.com/rebar/rebar.git", "Rev"}},
           {rebar, "1.0.*",
+           {git, "git://github.com/rebar/rebar.git", {branch, "master"}}},
+          {rebar,
            {git, "git://github.com/rebar/rebar.git", {branch, "master"}}},
           {rebar, "1.0.0",
            {git, "git://github.com/rebar/rebar.git", {tag, "1.0.0"}}},
           {rebar, "",
+           {git, "git://github.com/rebar/rebar.git", {branch, "master"}},
+           [raw]},
+          {rebar,
            {git, "git://github.com/rebar/rebar.git", {branch, "master"}},
            [raw]},
           {app_name, ".*", {hg, "https://www.example.org/url"}},
@@ -301,6 +315,18 @@ set_shared_deps_dir(Config, _DepsDir) ->
 
 get_shared_deps_dir(Config, Default) ->
     rebar_config:get_xconf(Config, deps_dir, Default).
+
+set_deps_prefer_libs(Config, undefined) ->
+    DepsPreferLibs = case os:getenv("REBAR_DEPS_PREFER_LIBS") of
+        false -> false;
+        _ -> true
+    end,
+    rebar_config:set_xconf(Config, deps_prefer_libs, DepsPreferLibs);
+set_deps_prefer_libs(Config, _DepsPreferLibs) ->
+    Config.
+
+get_deps_prefer_libs(Config, Default) ->
+    rebar_config:get_xconf(Config, deps_prefer_libs, Default).
 
 get_deps_dir(Config) ->
     get_deps_dir(Config, "").
@@ -354,8 +380,12 @@ find_deps(Config, read, [], Deps) ->
     {Config, lists:reverse(Deps)};
 find_deps(Config, Mode, [App | Rest], Acc) when is_atom(App) ->
     find_deps(Config, Mode, [{App, ".*", undefined} | Rest], Acc);
+find_deps(Config, Mode, [{App, Source} | Rest], Acc) when is_tuple(Source) ->
+    find_deps(Config, Mode, [{App, ".*", Source} | Rest], Acc);
 find_deps(Config, Mode, [{App, VsnRegex} | Rest], Acc) when is_atom(App) ->
     find_deps(Config, Mode, [{App, VsnRegex, undefined} | Rest], Acc);
+find_deps(Config, Mode, [{App, Source, Opts} | Rest], Acc) when is_tuple(Source) ->
+    find_deps(Config, Mode, [{App, ".*", Source, Opts} | Rest], Acc);
 find_deps(Config, Mode, [{App, VsnRegex, Source} | Rest], Acc) ->
     find_deps(Config, Mode, [{App, VsnRegex, Source, []} | Rest], Acc);
 find_deps(Config, Mode, [{App, VsnRegex, Source, Opts} | Rest], Acc)
@@ -378,9 +408,15 @@ find_dep(Config, Dep) ->
     %% e.g. {git, "https://github.com/mochi/mochiweb.git", "HEAD"}
     %% Deps with a source must be found (or fetched) locally.
     %% Those without a source may be satisfied from lib dir (get_lib_dir).
-    find_dep(Config, Dep, Dep#dep.source).
+    DepsPreferLibs = get_deps_prefer_libs(Config, false),
+    Mode = case {Dep#dep.source, DepsPreferLibs} of
+        {undefined, _DepsPreferLibs} -> maybe_in_lib;
+        {_DepSource, true} -> maybe_in_lib;
+        {_DepSource, false} -> local_only
+    end,
+    find_dep(Config, Dep, Mode).
 
-find_dep(Config, Dep, undefined) ->
+find_dep(Config, Dep, maybe_in_lib) ->
     %% 'source' is undefined.  If Dep is not satisfied locally,
     %% go ahead and find it amongst the lib_dir's.
     case find_dep_in_dir(Config, Dep, get_deps_dir(Config, Dep#dep.app)) of
@@ -389,7 +425,7 @@ find_dep(Config, Dep, undefined) ->
         {Config1, {missing, _}} ->
             find_dep_in_dir(Config1, Dep, get_lib_dir(Dep#dep.app))
     end;
-find_dep(Config, Dep, _Source) ->
+find_dep(Config, Dep, local_only) ->
     %% _Source is defined.  Regardless of what it is, we must find it
     %% locally satisfied or fetch it from the original source
     %% into the project's deps

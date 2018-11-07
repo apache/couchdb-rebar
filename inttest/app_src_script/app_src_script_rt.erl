@@ -26,13 +26,18 @@
 %% -------------------------------------------------------------------
 -module(app_src_script_rt).
 
--compile(export_all).
+-export([setup/1, files/0, run/1]).
 
 -include_lib("eunit/include/eunit.hrl").
 
+setup([Target]) ->
+  retest_utils:load_module(filename:join(Target, "inttest_utils.erl")),
+  ok.
+
 files() ->
-    [{copy, "../../rebar", "rebar"},
-     {create, "src/app_src_script.app.src.script", app_script(app_src_script)}].
+    [
+     {create, "src/app_src_script.app.src.script", app_script(app_src_script)}
+    ] ++ inttest_utils:rebar_setup().
 
 run(Dir) ->
     retest_log:log(debug, "Running in Dir: ~s~n", [Dir]),
