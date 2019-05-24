@@ -465,8 +465,10 @@ make_test_primitives(RawTests) ->
         end,
     lists:foldl(F, [], RawTests).
 
+eunit_primitive({timeout, _, _} = Type, M, F) ->
+  {Type, M, F};
 eunit_primitive(Type, M, F) ->
-    {Type, M, F}.
+  {timeout, 999999999999999999, [{Type, M, F}]}.
 
 pre15b02_eunit_primitive(test, M, F) ->
     eunit_test:function_wrapper(M, F);
