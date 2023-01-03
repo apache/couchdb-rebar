@@ -49,6 +49,11 @@ main(Args) ->
                           false -> undefined
                       end,
 
+    %% CouchDB's `make clean` clobbers all ebin directories, so protect rebar.app by
+    %% moving it out of harm's way, and copying it into ebin before building.
+    ok = filelib:ensure_dir("ebin/"),
+    {ok, _} = file:copy("rebar.app", "ebin/rebar.app"),
+
     %% Compile all src/*.erl to ebin
     %% To not accidentally try to compile files like Mac OS X resource forks,
     %% we only look for rebar source files that start with a letter.
