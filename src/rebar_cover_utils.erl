@@ -184,7 +184,7 @@ has_header(Mod, Header) ->
            end,
     {ok, {_, [{abstract_code, {_, AC}}]}} =
         beam_lib:chunks(Mod1, [abstract_code]),
-    [F || {attribute, 1, file, {F, 1}} <- AC,
+    [F || {attribute, _, file, {F, 1}} <- AC,
           string:str(F, Header) =/= 0] =/= [].
 
 align_notcovered_count(Module, Covered, NotCovered, false) ->
