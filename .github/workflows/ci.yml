@@ -1,0 +1,15 @@
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: OTP ${{matrix.otp}}
+    strategy:
+      matrix:
+        otp: ['23', '24', '25']
+    steps:
+      - uses: actions/checkout@v2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+      - run: make ci
