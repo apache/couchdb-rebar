@@ -1,18 +1,9 @@
 sudo: false
 language: erlang
 otp_release:
-  - R16B02
-  - R16B01
-  - R16B
-  - R15B01
-  - R15B
-  - R14B04
-  - R14B03
-  - 17.0
-  - 18.0
-  - 19.1
-  - 20.0.5
-  - 20.1.5
+  - 23.3.1
+  - 24.3.1
+  - 25.1.1
 env: MAKE_TARGET=ci
 before_script:
   - hostname -f
@@ -23,10 +14,10 @@ after_script:
   - find .rebar
 matrix:
   include:
-    - otp_release: 20.1.5
+    - otp_release: 25.1.1
       env: MAKE_TARGET=ci-dialyze
   allow_failures:
-    - otp_release: 20.1.5
+    - otp_release: 25.1.1
       env: MAKE_TARGET=ci-dialyze
 script: make $MAKE_TARGET
 cache:
