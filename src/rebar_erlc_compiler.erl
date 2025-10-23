@@ -267,12 +267,13 @@ define_if(_Def, false) -> [].
 is_lib_avail(Config, DictKey, Mod, Hrl, Name) ->
     case rebar_config:get_xconf(Config, DictKey, undefined) of
         undefined ->
-            IsAvail = case code:lib_dir(Mod, include) of
-                          {error, bad_name} ->
-                              false;
-                          Dir ->
-                              filelib:is_regular(filename:join(Dir, Hrl))
-                      end,
+            IsAvail =
+                case code:lib_dir(Mod) of
+                    {error, bad_name} ->
+                        false;
+                    Dir ->
+                        filelib:is_regular(filename:join([Dir, "include", Hrl]))
+                end,
             NewConfig = rebar_config:set_xconf(Config, DictKey, IsAvail),
             ?DEBUG("~s availability: ~p\n", [Name, IsAvail]),
             {NewConfig, IsAvail};
@@ -705,9 +706,9 @@ expand_include_lib_path(File) ->
                  _ ->
                      filename:join(Parts)
              end,
-    case code:lib_dir(list_to_atom(Lib), list_to_atom(SubDir)) of
+    case code:lib_dir(list_to_atom(Lib)) of
         {error, bad_name} -> [];
-        Dir -> [filename:join(Dir, File1)]
+        Dir -> [filename:join([Dir, SubDir, File1])]
     end.
 
 %%

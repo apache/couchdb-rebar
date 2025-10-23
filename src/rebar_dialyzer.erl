@@ -238,9 +238,9 @@ deps_apps(Config) ->
     [element(1, Dep) || Dep <- rebar_config:get_local(Config, deps, [])].
 
 app_lib_dir(App) ->
-    case code:lib_dir(App, ebin) of
+    case code:lib_dir(App) of
         {error, _}=Err ->
             ?ABORT("Failed to get ebin dir for app: ~p~n~p~n", [App, Err]);
         Dir ->
-            Dir
+            filename:join(Dir, "ebin")
     end.

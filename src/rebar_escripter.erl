@@ -138,13 +138,14 @@ info_help(Description) ->
 get_app_beams([], Acc) ->
     Acc;
 get_app_beams([App | Rest], Acc) ->
-    case code:lib_dir(App, ebin) of
+    case code:lib_dir(App) of
         {error, bad_name} ->
             ?ABORT("Failed to get ebin/ directory for "
                    "~p escript_incl_apps.", [App]);
-        Path ->
+        PathApp ->
+            PathEbin = filename:join(PathApp, "ebin"),
             Prefix = filename:join(atom_to_list(App), "ebin"),
-            Acc2 = load_files(Prefix, "*", Path),
+            Acc2 = load_files(Prefix, "*", PathEbin),
             get_app_beams(Rest, Acc2 ++ Acc)
     end.
 
