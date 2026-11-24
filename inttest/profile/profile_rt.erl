@@ -115,7 +115,7 @@ check1(Cmd, CapturedOutput, ExpectedOutput, UnexpectedOutput,
        ExpectedFiles, UnexpectedFiles) ->
     ReOpts = [{capture, all, list}],
     ExMatches =
-        lists:zf(
+        lists:filtermap(
           fun(Pattern) ->
                   case re:run(CapturedOutput, Pattern, ReOpts) of
                       nomatch ->
@@ -131,7 +131,7 @@ check1(Cmd, CapturedOutput, ExpectedOutput, UnexpectedOutput,
           end, ExpectedOutput),
 
     UnExMatches =
-        lists:zf(
+        lists:filtermap(
           fun(Pattern) ->
                   case re:run(CapturedOutput, Pattern, ReOpts) of
                       nomatch ->
@@ -146,7 +146,7 @@ check1(Cmd, CapturedOutput, ExpectedOutput, UnexpectedOutput,
           end, UnexpectedOutput),
 
     ExFiles =
-        lists:zf(
+        lists:filtermap(
           fun(File) ->
                   case filelib:is_regular(File) of
                       true ->
@@ -159,7 +159,7 @@ check1(Cmd, CapturedOutput, ExpectedOutput, UnexpectedOutput,
           end, ExpectedFiles),
 
     UnExFiles =
-        lists:zf(
+        lists:filtermap(
           fun(File) ->
                   case filelib:is_regular(File) of
                       true ->

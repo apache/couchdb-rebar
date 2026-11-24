@@ -43,14 +43,23 @@ xref_test_() ->
             ]
      end}.
 
+-if(?OTP_RELEASE >= 29).
+-define(SUPPRESS_UNDEFINED_FUNCTIONS,
+    {"Undefined function can be suppressed.", ?_assert(string:str(RebarOut,
+      "myapp_somemod:notavailable/1 is undefined function") =:= 0)}).
+-else.
+-define(SUPPRESS_UNDEFINED_FUNCTIONS,
+    {"Undefined function can not be suppressed.", ?_assert(string:str(RebarOut,
+      "myapp_somemod:notavailable/1 is undefined function") =/= 0)}).
+-endif.
+
 xref_ignore_test_() ->
     {"Test the suppression of xref warnings",
      setup, fun() -> setup_project(ignore_xref), rebar("compile"), rebar("skip_deps=true xref") end,
      fun teardown/1,
      fun(RebarOut) ->
              [
-              {"Undefined function can not be suppressed.", ?_assert(string:str(RebarOut,
-                "myapp_somemod:notavailable/1 is undefined function") =/= 0)},
+              ?SUPPRESS_UNDEFINED_FUNCTIONS,
               {"Supppressed undefined function call", ?_assert(string:str(RebarOut,
                 "myapp_othermod:somefunc/0 calls undefined function myapp_somemod:notavailable/1") =:= 0)},
               {"Supppressed deprecated function", ?_assert(string:str(RebarOut,

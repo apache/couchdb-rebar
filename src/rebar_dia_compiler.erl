@@ -116,7 +116,7 @@ compile_dia(Source, Target, Config) ->
 
 dia_generated_files(DiaDir, SrcDir, IncDir) ->
     F = fun(File, Acc) ->
-            case catch diameter_dict_util:parse({path, File}, []) of
+            try diameter_dict_util:parse({path, File}, []) of
                 {ok, Spec} ->
                     FileName = dia_filename(File, Spec),
                     [
@@ -126,6 +126,9 @@ dia_generated_files(DiaDir, SrcDir, IncDir) ->
                         )
                     ] ++ Acc;
                 _ ->
+                    Acc
+            catch
+                _:_ ->
                     Acc
             end
     end,

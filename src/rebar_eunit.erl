@@ -342,7 +342,7 @@ get_matching_modules(AllModules, Modules, QualifiedTests) ->
                     _-> false
                 end
         end,
-    ModulesFromQualifiedTests = lists:zf(ModuleFilterMapper, QualifiedTests),
+    ModulesFromQualifiedTests = lists:filtermap(ModuleFilterMapper, QualifiedTests),
     lists:usort(Modules ++ ModulesFromQualifiedTests).
 
 get_matching_tests(Modules, [], []) ->
@@ -490,7 +490,14 @@ perform_eunit(Config, Tests) ->
     Cwd = rebar_utils:get_cwd(),
     ok = file:set_cwd(?EUNIT_DIR),
 
-    EunitResult = (catch eunit:test(Tests, EunitOpts)),
+    EunitResult =
+        try
+            eunit:test(Tests, EunitOpts)
+        catch
+            throw:Term -> Term;
+            exit:Reason -> {'EXIT', Reason};
+            error:Reason:Stacktrace -> {'EXIT', {Reason, Stacktrace}}
+        end,
 
     %% Return to original working dir
     ok = file:set_cwd(Cwd),
@@ -605,9 +612,16 @@ kill_extras(Pids) ->
 reconstruct_app_env_vars([App|Apps]) ->
     CmdLine0 = proplists:get_value(App, init:get_arguments(), []),
     CmdVars = [{list_to_atom(K), list_to_atom(V)} || {K, V} <- CmdLine0],
-    AppFile = (catch filename:join([code:lib_dir(App),
-                                    "ebin",
-                                    atom_to_list(App) ++ ".app"])),
+    AppFile =
+        try
+            filename:join([code:lib_dir(App),
+                           "ebin",
+                           atom_to_list(App) ++ ".app"])
+        catch
+            throw:Term -> Term;
+            exit:Reason -> {'EXIT', Reason};
+            error:Reason:Stacktrace -> {'EXIT', {Reason, Stacktrace}}
+        end,
     AppVars = case file:consult(AppFile) of
                   {ok, [{application, App, Ps}]} ->
                       proplists:get_value(env, Ps, []);

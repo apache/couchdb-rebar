@@ -55,15 +55,20 @@
 
 %% escript Entry point
 main(Args) ->
-    case catch(run(Args)) of
+    try run(Args) of
         ok ->
             ok;
-        rebar_abort ->
-            rebar_utils:delayed_halt(1);
         Error ->
             %% Nothing should percolate up from rebar_core;
             %% Dump this error to console
             io:format("Uncaught error in rebar_core: ~p\n", [Error]),
+            rebar_utils:delayed_halt(1)
+    catch
+        throw:rebar_abort ->
+            rebar_utils:delayed_halt(1);
+        Class:Reason:Stacktrace ->
+            io:format("Uncaught error in rebar_core: ~p\n",
+                      [{Class, {Reason, Stacktrace}}]),
             rebar_utils:delayed_halt(1)
     end.
 
