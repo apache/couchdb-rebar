@@ -87,7 +87,7 @@ check_output(Cmd, FailureMode, Expected, Unexpected) ->
 check_output1(Cmd, Captured, Expected, Unexpected) ->
     ReOpts = [{capture, all, list}, unicode],
     ExMatches =
-        lists:zf(
+        lists:filtermap(
           fun(Pattern) ->
                   case re:run(Captured, Pattern, ReOpts) of
                       nomatch ->
@@ -103,7 +103,7 @@ check_output1(Cmd, Captured, Expected, Unexpected) ->
           end, Expected),
 
     UnExMatches =
-        lists:zf(
+        lists:filtermap(
           fun(Pattern) ->
                   case re:run(Captured, Pattern, ReOpts) of
                       nomatch ->

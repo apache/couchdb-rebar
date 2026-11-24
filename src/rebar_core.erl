@@ -415,8 +415,8 @@ execute(Command, Type, Modules, Config, ModuleFile, Env) ->
 
             %% Run the available modules
             apply_hooks(pre_hooks, Config1, Command, Env),
-            case catch(run_modules(TargetModules, Command,
-                                   Config1, ModuleFile)) of
+            try run_modules(TargetModules, Command,
+                            Config1, ModuleFile) of
                 {ok, NewConfig} ->
                     apply_hooks(post_hooks, NewConfig, Command, Env),
                     NewConfig;
@@ -429,6 +429,10 @@ execute(Command, Type, Modules, Config, ModuleFile, Env) ->
                 Other ->
                     ?ABORT("~p failed while processing ~s: ~s\n",
                            [Command, Dir, io_lib:print(Other, 1, 80, -1)])
+            catch
+                C:R:S ->
+                    ?ABORT("~p failed while processing ~s: ~s\n",
+                           [Command, Dir, io_lib:print({C, {R, S}}, 1, 80, -1)])
             end
     end.
 

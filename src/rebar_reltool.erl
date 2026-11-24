@@ -57,13 +57,17 @@ generate(Config0, ReltoolFile) ->
     validate_rel_apps(Server, Sys),
 
     %% Finally, run reltool
-    case catch(run_reltool(Server, Config, ReltoolConfig)) of
+    try run_reltool(Server, Config, ReltoolConfig) of
         ok ->
             {ok, Config};
         {error, failed} ->
             ?FAIL;
         Other2 ->
             ?ERROR("Unexpected error: ~p\n", [Other2]),
+            ?FAIL
+    catch
+        Class:Reason:Stacktrace ->
+            ?ERROR("Unexpected error: ~p\n", [{Class, {Reason, Stacktrace}}]),
             ?FAIL
     end.
 

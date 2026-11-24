@@ -14,10 +14,14 @@ files() ->
      {copy, "test2_SUITE.erl", "itest/test2_SUITE.erl"}].
 
 run(_Dir) ->
-    ok = case catch retest:sh("./rebar compile ct -v 3") of
-             {error, {stopped, _}} -> ok;
-             _ -> expected_to_fail
-         end.
+    ok =
+        try retest:sh("./rebar compile ct -v 3") of
+            {error, {stopped, _}} -> ok;
+            _ -> expected_to_fail
+        catch
+            throw:{error, {stopped, _}} -> ok;
+            _:_ -> expected_to_fail
+        end.
 
 %%
 %% Generate the contents of a simple .app file

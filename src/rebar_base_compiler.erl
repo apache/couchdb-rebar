@@ -213,7 +213,7 @@ compile_worker(QueuePid, Config, CompileFn) ->
     QueuePid ! {next, self()},
     receive
         {compile, Source} ->
-            case catch(CompileFn(Source, Config)) of
+            try CompileFn(Source, Config) of
                 {ok, Ws} ->
                     QueuePid ! {compiled, Source, Ws},
                     compile_worker(QueuePid, Config, CompileFn);
@@ -225,16 +225,27 @@ compile_worker(QueuePid, Config, CompileFn) ->
                     compile_worker(QueuePid, Config, CompileFn);
                 Error ->
                     QueuePid ! {fail, {{error, Error}, {source, Source}}},
-                    case rebar_config:get_xconf(Config, keep_going, false) of
-                        false ->
-                            ok;
-                        true ->
-                            compile_worker(QueuePid, Config, CompileFn)
-                    end
+                    continue_compile_worker(QueuePid, Config, CompileFn)
+            catch
+                Class:Reason:Stacktrace ->
+                    QueuePid !
+                        {fail, {
+                            {error, {Class, {Reason, Stacktrace}}},
+                            {source, Source}
+                        }},
+                    continue_compile_worker(QueuePid, Config, CompileFn)
             end;
 
         empty ->
             ok
+    end.
+
+continue_compile_worker(QueuePid, Config, CompileFn) ->
+    case rebar_config:get_xconf(Config, keep_going, false) of
+        false ->
+            ok;
+        true ->
+            compile_worker(QueuePid, Config, CompileFn)
     end.
 
 format_errors(Config, Source, Errors) ->
